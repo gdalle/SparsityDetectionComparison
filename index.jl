@@ -65,18 +65,18 @@ function jac_sparsity_sct(nlp)
     return ADTypes.jacobian_sparsity(f, x, TracerSparsityDetector())
 end
 
-# ╔═╡ d5c00631-ab18-47c9-8007-e7f30fae8aaa
-function time_jac_sparsity_sct(name::Symbol)
-    nlp = OptimizationProblems.ADNLPProblems.eval(name)()
-    jac_sparsity_sct(nlp)
-	return @elapsed jac_sparsity_sct(nlp)
-end
-
 # ╔═╡ 829e100d-c308-4554-a8ad-efb10f05cfbe
 function hess_sparsity_sct(nlp)
     f = Base.Fix1(mylag, nlp)
     x = nlp.meta.x0
     return ADTypes.hessian_sparsity(f, x, TracerSparsityDetector())
+end
+
+# ╔═╡ d5c00631-ab18-47c9-8007-e7f30fae8aaa
+function time_jac_sparsity_sct(name::Symbol)
+    nlp = OptimizationProblems.ADNLPProblems.eval(name)()
+    jac_sparsity_sct(nlp)
+	return @elapsed jac_sparsity_sct(nlp)
 end
 
 # ╔═╡ eee78462-31b4-43e1-9fc7-5510f42a5e7a
@@ -100,13 +100,6 @@ function jac_sparsity_jump(jump_model)
     return sparse(jrows, jcols, jvals, nlp.meta.ncon, nlp.meta.nvar)
 end
 
-# ╔═╡ 04f0177e-124f-4f47-b1fa-54bf0ce20326
-function time_jac_sparsity_jump(name::Symbol)
-    jump_model = OptimizationProblems.PureJuMP.eval(name)()
-	jac_sparsity_jump(jump_model)
-	return @elapsed jac_sparsity_jump(jump_model)
-end
-
 # ╔═╡ f1ee21eb-865e-4929-89b6-2d35bf13fa04
 function hess_sparsity_jump(jump_model)
     nlp = MathOptNLPModel(jump_model)
@@ -116,6 +109,13 @@ function hess_sparsity_jump(jump_model)
     H_L = sparse(hrows, hcols, hvals, nlp.meta.nvar, nlp.meta.nvar)
     # only the lower triangular part is stored
     return sparse(Symmetric(H_L, :L))
+end
+
+# ╔═╡ 04f0177e-124f-4f47-b1fa-54bf0ce20326
+function time_jac_sparsity_jump(name::Symbol)
+    jump_model = OptimizationProblems.PureJuMP.eval(name)()
+	jac_sparsity_jump(jump_model)
+	return @elapsed jac_sparsity_jump(jump_model)
 end
 
 # ╔═╡ c7556f1d-3450-4edd-83c5-a4c5e41615c2
@@ -151,6 +151,9 @@ begin
 	end
 end
 
+# ╔═╡ 5f54bf6c-b6b9-4137-8d4b-d28b583033fc
+data_jac
+
 # ╔═╡ 332cfa6d-8751-4327-bca9-abbb5d150377
 begin
 	data_hess = DataFrame()
@@ -164,6 +167,9 @@ begin
 	end
 end
 
+# ╔═╡ b6c610ee-9ec9-4c47-93a3-3e139ea7ca7d
+data_hess
+
 # ╔═╡ 7e5e0145-7844-47ae-828c-3f49febb1400
 md"""
 ### Plots
@@ -171,22 +177,35 @@ md"""
 
 # ╔═╡ 4d674324-f63c-4d6f-b1db-4007da179149
 function plot_comparison(data; matrix::Symbol)
-	data = @orderby(data, :sct_time)
-	fig = Figure(size=(500, 1000))
-	ax = Axis(
-		fig[1, 1], title="$matrix sparsity detection",
-		xlabel="time ratio SCT / JuMP (left of 1 is good)",
-		ylabel="problem",
-		xscale=log10,
-		yticks=(1:size(data, 1),string.(data[!, :name])),
-		yticklabelsize=8,
-	)
-	barplot!(
-		1:size(data, 1),
-		data[!, :sct_time] ./ data[!, :jump_time];
-		direction=:x,
-	)
-	vlines!(ax, [1.0], linewidth=2, color=:black)
+	data = copy(data)
+	data[!, :ratio] = data[!, :sct_time] ./ data[!, :jump_time]
+	data = @orderby(data, :ratio)
+	data1 = data[1:size(data, 1) ÷ 3, :]
+	data2 = data[(size(data, 1) ÷ 3 + 1):(2(size(data, 1) ÷ 3)), :]
+	data3 = data[(2(size(data, 1) ÷ 3) + 1):end, :]
+	fig = Figure(size=(1000, 1000))
+	Label(fig[0, 1:3], "$matrix sparsity detection", font=:bold, fontsize=20)
+	Label(fig[1, 0], "optimization problem", tellheight=false, rotation=π/2, fontsize=15)
+	axes = []
+	for (k, datak) in enumerate([data1, data2, data3])
+		axk = Axis(
+			fig[1, k],
+			xscale=log10,
+			yticks=(1:size(datak, 1),string.(datak[!, :name])),
+			yticklabelsize=8,
+			xlabel="runtime ratio SCT / JuMP"
+		)
+		push!(axes, axk)
+		linkxaxes!(axk, first(axes))
+		barplot!(
+			axk,
+			1:size(datak, 1),
+			datak[!, :ratio];
+			direction=:x,
+			fillto=(matrix == :Jacobian ? 1e-4 : 1e-1),
+		)
+		vlines!(axk, [1.0], linewidth=2, color=:black)
+	end
 	return fig
 end
 
@@ -1961,19 +1980,21 @@ version = "3.5.0+0"
 # ╠═2dff021a-98c9-4f37-8974-ba010a6a7f5c
 # ╟─74d25f4f-c96f-4583-88b2-d4ceb26b30c4
 # ╠═b2046078-a09e-46e5-9545-761668f47735
-# ╠═d5c00631-ab18-47c9-8007-e7f30fae8aaa
 # ╠═829e100d-c308-4554-a8ad-efb10f05cfbe
+# ╠═d5c00631-ab18-47c9-8007-e7f30fae8aaa
 # ╠═eee78462-31b4-43e1-9fc7-5510f42a5e7a
 # ╟─2d6f9d04-f9ea-471e-a985-abc27b61f901
 # ╠═8c0ecbe6-a2c4-4b40-85c1-8b79949f681c
-# ╠═04f0177e-124f-4f47-b1fa-54bf0ce20326
 # ╠═f1ee21eb-865e-4929-89b6-2d35bf13fa04
+# ╠═04f0177e-124f-4f47-b1fa-54bf0ce20326
 # ╠═c7556f1d-3450-4edd-83c5-a4c5e41615c2
 # ╟─ab80acce-e6a1-4fd1-8c56-9f2985c5faa6
 # ╠═180cf7a5-ae06-44de-8417-3afaf23c5fc7
 # ╟─0847e886-3b6b-4e76-8eb0-d57407b036d0
 # ╠═6d8dd76b-e0d8-4f73-8e1b-71a582746a61
+# ╠═5f54bf6c-b6b9-4137-8d4b-d28b583033fc
 # ╠═332cfa6d-8751-4327-bca9-abbb5d150377
+# ╠═b6c610ee-9ec9-4c47-93a3-3e139ea7ca7d
 # ╟─7e5e0145-7844-47ae-828c-3f49febb1400
 # ╠═4d674324-f63c-4d6f-b1db-4007da179149
 # ╠═aa23c010-469d-416c-ae65-c97167f83ae8
