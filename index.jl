@@ -158,7 +158,7 @@ NAMES = Symbol.(OptimizationProblems.meta[!, :name])
 length(NAMES)
 
 # ╔═╡ 180cf7a5-ae06-44de-8417-3afaf23c5fc7
-FORBIDDEN_NAMES = [:tetra_duct12]
+FORBIDDEN_NAMES = [name for name in NAMES if startswith(string(name), "tetra_")]
 
 # ╔═╡ 0847e886-3b6b-4e76-8eb0-d57407b036d0
 md"""
