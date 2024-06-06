@@ -144,8 +144,14 @@ md"""
 ## Benchmarks
 """
 
+# ╔═╡ e0bda3d4-9c07-485b-bedb-a7a76aa1988d
+NAMES = Symbol.(OptimizationProblems.meta[!, :name])
+
+# ╔═╡ 58979cf3-afea-4b8a-a8a2-2ad118a3b3a8
+length(NAMES)
+
 # ╔═╡ 180cf7a5-ae06-44de-8417-3afaf23c5fc7
-NAMES = OptimizationProblems.meta[!, :name]
+FORBIDDEN_NAMES = []
 
 # ╔═╡ 0847e886-3b6b-4e76-8eb0-d57407b036d0
 md"""
@@ -155,20 +161,25 @@ md"""
 # ╔═╡ 6d8dd76b-e0d8-4f73-8e1b-71a582746a61
 begin
 	data_jac = DataFrame()
-	@progress for name in Symbol.(NAMES)
-		sct = time_jac_sparsity(name, TracerSparsityDetector())
-		symb = time_jac_sparsity(name, SymbolicsSparsityDetector())
-		jump = time_jac_sparsity_jump(name)
-		row = (;
-			name,
-			sct_time = sct.time,
-			sct_bytes = sct.bytes,
-			symb_time = symb.time,
-			symb_bytes = symb.bytes,
-			jump_time = jump.time,
-			jump_bytes = jump.bytes,
-		)
-		push!(data_jac, row)
+	@progress for (k, name) in enumerate(NAMES)
+		@info "$k - $name"
+		if name in FORBIDDEN_NAMES
+			@warn "Skipping $name"
+		else
+			sct = time_jac_sparsity(name, TracerSparsityDetector())
+			symb = time_jac_sparsity(name, SymbolicsSparsityDetector())
+			jump = time_jac_sparsity_jump(name)
+			row = (;
+				name,
+				sct_time = sct.time,
+				sct_bytes = sct.bytes,
+				symb_time = symb.time,
+				symb_bytes = symb.bytes,
+				jump_time = jump.time,
+				jump_bytes = jump.bytes,
+			)
+			push!(data_jac, row)
+		end
 	end
 end
 
@@ -178,20 +189,25 @@ data_jac
 # ╔═╡ 332cfa6d-8751-4327-bca9-abbb5d150377
 begin
 	data_hess = DataFrame()
-	@progress for name in Symbol.(NAMES)
-		sct = time_hess_sparsity(name, TracerSparsityDetector())
-		symb = time_hess_sparsity(name, SymbolicsSparsityDetector())
-		jump = time_hess_sparsity_jump(name)
-		row = (;
-			name,
-			sct_time = sct.time,
-			sct_bytes = sct.bytes,
-			symb_time = symb.time,
-			symb_bytes = symb.bytes,
-			jump_time = jump.time,
-			jump_bytes = jump.bytes,
-		)
-		push!(data_hess, row)
+	@progress for (k, name) in enumerate(NAMES)
+		@info "$k - $name"
+		if name in FORBIDDEN_NAMES
+			@warn "Skipping $name"
+		else
+			sct = time_hess_sparsity(name, TracerSparsityDetector())
+			symb = time_hess_sparsity(name, SymbolicsSparsityDetector())
+			jump = time_hess_sparsity_jump(name)
+			row = (;
+				name,
+				sct_time = sct.time,
+				sct_bytes = sct.bytes,
+				symb_time = symb.time,
+				symb_bytes = symb.bytes,
+				jump_time = jump.time,
+				jump_bytes = jump.bytes,
+			)
+			push!(data_hess, row)
+		end
 	end
 end
 
@@ -227,7 +243,7 @@ function plot_comparison(data; matrix::Symbol)
 	colors = Makie.wong_colors()
 	
 	fig = Figure(size=(1000, 1000))
-	Label(fig[0, 1:n], "$matrix sparsity detection", font=:bold, fontsize=20)
+	Label(fig[0, 1:n], "$matrix sparsity detection ($(length(NAMES) - length(FORBIDDEN_NAMES)) / $(length(NAMES)) problems)", font=:bold, fontsize=20)
 	Label(fig[1, 0], "optimization problem", tellheight=false, rotation=π/2, fontsize=15)
 
 	labels = ["SparseConnectivityTracer / JuMP", "Symbolics / JuMP"]
@@ -244,7 +260,8 @@ function plot_comparison(data; matrix::Symbol)
 			fig[1, 2k-1:2k],
 			xscale=log10,
 			yticks=(1:nk,string.(datak[!, :name])),
-			xlabel="runtime ratio"
+			xlabel="runtime ratio",
+			yticklabelsize=8,
 		)
 		push!(axes, axk)
 		linkxaxes!(axk, first(axes))
@@ -2320,6 +2337,8 @@ version = "3.5.0+0"
 # ╠═04f0177e-124f-4f47-b1fa-54bf0ce20326
 # ╠═c7556f1d-3450-4edd-83c5-a4c5e41615c2
 # ╟─ab80acce-e6a1-4fd1-8c56-9f2985c5faa6
+# ╠═e0bda3d4-9c07-485b-bedb-a7a76aa1988d
+# ╠═58979cf3-afea-4b8a-a8a2-2ad118a3b3a8
 # ╠═180cf7a5-ae06-44de-8417-3afaf23c5fc7
 # ╟─0847e886-3b6b-4e76-8eb0-d57407b036d0
 # ╠═6d8dd76b-e0d8-4f73-8e1b-71a582746a61
