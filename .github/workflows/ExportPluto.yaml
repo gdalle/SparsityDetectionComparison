@@ -57,6 +57,8 @@ jobs:
                     Export_cache_dir="pluto_state_cache",
                     Export_baked_notebookfile=false,
                     Export_baked_state=false,
+                    Pluto_evaluation_capture_stdout=false,
+                    Pluto_evaluation_workspace_use_distributed_stdlib=true,
                     # more parameters can go here
                   )'
 

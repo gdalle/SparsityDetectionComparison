@@ -12,6 +12,7 @@ begin
 	using Chairmarks
 	using DataFrames
 	using DataFramesMeta
+	using Dates
 	using LinearAlgebra
 	using OptimizationProblems
 	using NLPModels
@@ -52,6 +53,12 @@ function mylag(nlp, x)
     c = mycons(nlp, x)
     λ = randn(length(c))
     return o + dot(λ, c)
+end
+
+# ╔═╡ 433d05d5-1660-4223-af89-106a61a2fa68
+function problem_stats(name::Symbol)
+	nlp = OptimizationProblems.ADNLPProblems.eval(name)()
+	return (; nvar=nlp.meta.nvar, ncon=nlp.meta.ncon)
 end
 
 # ╔═╡ 74d25f4f-c96f-4583-88b2-d4ceb26b30c4
@@ -161,16 +168,18 @@ md"""
 # ╔═╡ 6d8dd76b-e0d8-4f73-8e1b-71a582746a61
 begin
 	data_jac = DataFrame()
-	@progress for (k, name) in enumerate(NAMES)
-		@info "$k - $name"
+	for (k, name) in enumerate(NAMES)
+		println("Jacobian - $k - $name - $(now())")
 		if name in FORBIDDEN_NAMES
 			@warn "Skipping $name"
 		else
 			sct = time_jac_sparsity(name, TracerSparsityDetector())
 			symb = time_jac_sparsity(name, SymbolicsSparsityDetector())
 			jump = time_jac_sparsity_jump(name)
+			stats = problem_stats(name)
 			row = (;
 				name,
+				stats...,
 				sct_time = sct.time,
 				sct_bytes = sct.bytes,
 				symb_time = symb.time,
@@ -189,16 +198,18 @@ data_jac
 # ╔═╡ 332cfa6d-8751-4327-bca9-abbb5d150377
 begin
 	data_hess = DataFrame()
-	@progress for (k, name) in enumerate(NAMES)
-		@info "$k - $name"
+	for (k, name) in enumerate(NAMES)
+		println("Hessian - $k - $name - $(now())")
 		if name in FORBIDDEN_NAMES
 			@warn "Skipping $name"
 		else
 			sct = time_hess_sparsity(name, TracerSparsityDetector())
 			symb = time_hess_sparsity(name, SymbolicsSparsityDetector())
 			jump = time_hess_sparsity_jump(name)
+			stats = problem_stats(name)
 			row = (;
 				name,
+				stats...,
 				sct_time = sct.time,
 				sct_bytes = sct.bytes,
 				symb_time = symb.time,
@@ -232,6 +243,8 @@ function plot_comparison(data; matrix::Symbol)
 		data[!, :symb_time] ./ data[!, :jump_time],
 	)
 	data = @orderby(data, :max_ratio)
+
+	@rtransform!(data, :label = string(:name) * " (" * string(:nvar) * ", " * string(:ncon) * ")")
 	
 	data1 = data[1:size(data, 1) ÷ 3, :]
 	data2 = data[(size(data, 1) ÷ 3 + 1):(2(size(data, 1) ÷ 3)), :]
@@ -243,7 +256,11 @@ function plot_comparison(data; matrix::Symbol)
 	colors = Makie.wong_colors()
 	
 	fig = Figure(size=(1000, 1000))
-	Label(fig[0, 1:n], "$matrix sparsity detection ($(length(NAMES) - length(FORBIDDEN_NAMES)) / $(length(NAMES)) problems)", font=:bold, fontsize=20)
+	Label(
+		fig[0, 1:n],
+		"$matrix sparsity detection ($(length(NAMES) - length(FORBIDDEN_NAMES)) / $(length(NAMES)) problems)",
+		font=:bold, fontsize=20
+	)
 	Label(fig[1, 0], "optimization problem", tellheight=false, rotation=π/2, fontsize=15)
 
 	labels = ["SparseConnectivityTracer / JuMP", "Symbolics / JuMP"]
@@ -259,7 +276,7 @@ function plot_comparison(data; matrix::Symbol)
 		axk = Axis(
 			fig[1, 2k-1:2k],
 			xscale=log10,
-			yticks=(1:nk,string.(datak[!, :name])),
+			yticks=(1:nk,datak[!, :label]),
 			xlabel="runtime ratio",
 			yticklabelsize=8,
 		)
@@ -300,6 +317,7 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 NLPModelsJuMP = "792afdf1-32c1-5681-94e0-d7bf7a5df49e"
@@ -336,7 +354,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "d80c4c5500f884f37768af03f3a4059bf2596b79"
+project_hash = "43ffabfadfbb5d03a6aa39034cad8c64a65e5b42"
 
 [[deps.ADNLPModels]]
 deps = ["ColPack", "ForwardDiff", "LinearAlgebra", "NLPModels", "Requires", "ReverseDiff", "SparseArrays"]
@@ -2324,6 +2342,7 @@ version = "3.5.0+0"
 # ╟─b7476ec8-def8-476a-b322-17d4bdf268cb
 # ╠═24a94bc5-b736-42ce-9005-ef9c088e1534
 # ╠═2dff021a-98c9-4f37-8974-ba010a6a7f5c
+# ╠═433d05d5-1660-4223-af89-106a61a2fa68
 # ╟─74d25f4f-c96f-4583-88b2-d4ceb26b30c4
 # ╠═b2046078-a09e-46e5-9545-761668f47735
 # ╠═829e100d-c308-4554-a8ad-efb10f05cfbe
