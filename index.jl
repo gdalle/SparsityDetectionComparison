@@ -169,7 +169,7 @@ md"""
 begin
 	data_jac = DataFrame()
 	for (k, name) in enumerate(NAMES)
-		println("Jacobian - $k - $name - $(now())")
+		println("$(now()): Jacobian - $k - $name")
 		if name in FORBIDDEN_NAMES
 			@warn "Skipping $name"
 		else
@@ -199,7 +199,7 @@ data_jac
 begin
 	data_hess = DataFrame()
 	for (k, name) in enumerate(NAMES)
-		println("Hessian - $k - $name - $(now())")
+		println("$(now()): Hessian - $k - $name")
 		if name in FORBIDDEN_NAMES
 			@warn "Skipping $name"
 		else
