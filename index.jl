@@ -76,15 +76,23 @@ end
 # ╔═╡ d5c00631-ab18-47c9-8007-e7f30fae8aaa
 function time_jac_sparsity(name::Symbol, detector::ADTypes.AbstractSparsityDetector)
     nlp = OptimizationProblems.ADNLPProblems.eval(name)()
-    jac_sparsity(nlp, detector)
-	return @timed jac_sparsity(nlp, detector)
+	try
+    	jac_sparsity(nlp, detector)
+		return @timed jac_sparsity(nlp, detector)
+	catch e
+		return (; time=NaN, bytes=NaN)
+	end
 end
 
 # ╔═╡ eee78462-31b4-43e1-9fc7-5510f42a5e7a
 function time_hess_sparsity(name::Symbol, detector::ADTypes.AbstractSparsityDetector)
     nlp = OptimizationProblems.ADNLPProblems.eval(name)()
-	hess_sparsity(nlp, detector)
-	return @timed hess_sparsity(nlp, detector)
+	try
+		hess_sparsity(nlp, detector)
+		return @timed hess_sparsity(nlp, detector)
+	catch e
+		return (; time=NaN, bytes=NaN)
+	end
 end
 
 # ╔═╡ 863d4cf4-b0c9-4d3c-8ca2-e4b62cba8883
